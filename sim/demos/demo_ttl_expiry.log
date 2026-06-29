@@ -1,0 +1,3 @@
+t=8ms device=0 event=injected msg_id=be8c823e zone_id=4 ttl=2 spray_l=8
+t=9ms device=0 event=relayed msg_id=be8c823e to=127.0.0.1:61124 ttl=1 spray_l=4
+t=9ms device=1 event=received from=127.0.0.1:61123
