@@ -68,3 +68,18 @@ implementations are wire- and behaviour-compatible.
 - **Pipeline does not verify msg_id derivation.** Recomputing the BLAKE3
   msg_id at relays is possible per spec ("any relay can recompute") but is not
   one of the 8 documented pipeline steps, so it is deliberately not checked.
+
+## Adversarial test script
+
+- **Target is an in-process `RelayPipeline`, not a socket-connected node.**
+  The task says "a running node or app instance"; in meshlink-core the
+  pipeline IS the node's message processing, so the script injects raw
+  packets straight into a fresh pipeline per attack (with an honest control
+  message first to prove rejections are real). When the node/app repos
+  consume meshlink-core, the same attack builders can be pointed at a
+  transport.
+- **Replay vs duplicate mapping:** a replay within the 5-min freshness window
+  is caught at step 4 (dedup) because the timestamp is still valid; a replay
+  older than 5 min is the stale-timestamp attack at step 3. Both are covered;
+  "duplicate" (benign double-send) and "replay" (attacker re-injection) are
+  mechanically identical at step 4.
