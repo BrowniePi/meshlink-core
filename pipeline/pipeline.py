@@ -7,7 +7,7 @@ from .size_check import check_size
 from .ttl_check import check_ttl
 from .timestamp_check import check_timestamp
 from .dedup_check import DedupCache
-from .rate_limit_check import check_rate_limit
+from .rate_limit_check import RateLimiter
 from .signature_check import check_signature
 from .attestation_check import check_attestation
 
@@ -32,12 +32,13 @@ class RelayPipeline:
     rate-limit (step 5) before any Ed25519 work is done. Violating this order
     opens a CPU and battery exhaustion vector on mobile relays.
 
-    Steps 5–7 are stubs at Phase 0; they are replaced with real implementations
-    in Phases 0 (rate-limit), 4 (signature), and 5 (attestation) respectively.
+    Step 7 (attestation) is a deliberate always-pass stub until the backend
+    exists; it is replaced with real token validation in Phase 5.
     """
 
     def __init__(self) -> None:
         self._dedup = DedupCache()
+        self._rate_limiter = RateLimiter()
 
     def process(self, raw: bytes) -> PipelineResult:
         # Step 1 — size (pre-parse, one comparison)
@@ -58,12 +59,12 @@ class RelayPipeline:
         if reason := check_timestamp(msg):
             return PipelineResult(Outcome.DROP, reason)
 
-        # Step 4 — dedup (Bloom filter / LRU in production)
+        # Step 4 — dedup (Bloom filter + LRU)
         if reason := self._dedup.check(msg):
             return PipelineResult(Outcome.DROP, reason)
 
-        # Step 5 — rate limit (stub)
-        if reason := check_rate_limit(msg):
+        # Step 5 — rate limit (sliding window per ephem_id)
+        if reason := self._rate_limiter.check(msg):
             return PipelineResult(Outcome.DROP, reason)
 
         # Step 6 — Ed25519 signature (stub; real in Phase 4)

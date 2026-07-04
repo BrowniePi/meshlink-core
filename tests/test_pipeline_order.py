@@ -19,19 +19,24 @@ def _spy(monkeypatch, name, call_order):
     monkeypatch.setattr(pipeline_module, name, wrapper)
 
 
+def _spy_method(monkeypatch, obj, label, call_order):
+    original = obj.check
+
+    def wrapper(*args, **kwargs):
+        call_order.append(label)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(obj, "check", wrapper)
+
+
 def test_checks_run_in_documented_order(monkeypatch):
     call_order = []
-    for name in ("check_size", "check_ttl", "check_timestamp", "check_rate_limit", "check_signature", "check_attestation"):
+    for name in ("check_size", "check_ttl", "check_timestamp", "check_signature", "check_attestation"):
         _spy(monkeypatch, name, call_order)
 
     pipeline = RelayPipeline()
-    original_dedup_check = pipeline._dedup.check
-
-    def dedup_wrapper(*args, **kwargs):
-        call_order.append("check_dedup")
-        return original_dedup_check(*args, **kwargs)
-
-    monkeypatch.setattr(pipeline._dedup, "check", dedup_wrapper)
+    _spy_method(monkeypatch, pipeline._dedup, "check_dedup", call_order)
+    _spy_method(monkeypatch, pipeline._rate_limiter, "check_rate_limit", call_order)
 
     result = pipeline.process(build_packet())
 
@@ -71,9 +76,10 @@ def test_failing_ttl_check_short_circuits_timestamp(monkeypatch):
 
 def test_failing_dedup_check_short_circuits_rate_limit(monkeypatch):
     call_order = []
-    _spy(monkeypatch, "check_rate_limit", call_order)
 
     pipeline = RelayPipeline()
+    _spy_method(monkeypatch, pipeline._rate_limiter, "check_rate_limit", call_order)
+
     raw = build_packet()
     pipeline.process(raw)  # warm up dedup cache
     call_order.clear()

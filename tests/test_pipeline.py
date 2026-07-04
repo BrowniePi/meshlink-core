@@ -59,6 +59,20 @@ def test_ttl_check_fires_before_timestamp():
     assert "ttl" in result.drop_reason.lower()
 
 
+def test_flood_from_one_sender_hits_rate_limit():
+    from pipeline.rate_limit_check import MAX_MESSAGES_PER_WINDOW
+
+    pipeline = RelayPipeline()
+    ephem_id = b"\x0c" * 16
+    results = [
+        pipeline.process(build_packet(msg_id=bytes([n]) * 16, ephem_id=ephem_id))
+        for n in range(MAX_MESSAGES_PER_WINDOW + 1)
+    ]
+    assert all(r.outcome == Outcome.DELIVER for r in results[:-1])
+    assert results[-1].outcome == Outcome.DROP
+    assert "rate limit" in results[-1].drop_reason.lower()
+
+
 def test_size_check_fires_before_ttl():
     # A truncated packet with TTL=0 should fail at size (step 1), not TTL (step 2)
     pipeline = RelayPipeline()

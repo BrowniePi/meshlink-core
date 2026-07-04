@@ -20,6 +20,21 @@ def test_old_timestamp_drops():
     assert check_timestamp(msg) is not None
 
 
+def test_timestamp_exactly_five_minutes_old_passes():
+    msg = parse_packet(build_packet(timestamp=int(time.time()) - 300))
+    assert check_timestamp(msg) is None
+
+
+def test_timestamp_just_over_five_minutes_old_drops():
+    msg = parse_packet(build_packet(timestamp=int(time.time()) - 302))
+    assert check_timestamp(msg) is not None
+
+
+def test_timestamp_exactly_thirty_seconds_future_passes():
+    msg = parse_packet(build_packet(timestamp=int(time.time()) + 30))
+    assert check_timestamp(msg) is None
+
+
 def test_future_timestamp_drops():
     msg = parse_packet(build_packet(timestamp=int(time.time()) + 31))
     assert check_timestamp(msg) is not None

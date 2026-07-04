@@ -21,3 +21,33 @@ implementations are wire- and behaviour-compatible.
   as hex) created with `0600` permissions, generated exactly once
   (fails-closed on race via `O_EXCL`). This is explicitly temporary; secure
   storage (Keychain/Keystore) is the app-side Phase 4 task.
+
+## Pipeline checks
+
+- **Rate limit N = 10 messages per 10 s window** (confirmed with project owner
+  2026-07-04). Notion gives the window (10 s) and the ban rule (60 s ban after
+  3 violations in a row, Tech Ref §8.3) but never fixes N.
+- **Rate-limit semantics:** over-limit messages are dropped and do NOT consume
+  window budget; a message that passes resets the consecutive-violation
+  streak; while banned, messages are dropped without touching the window; the
+  streak restarts at zero after a ban expires. Boundary: a message exactly
+  `WINDOW_SECONDS` old still counts inside the window (evict when age
+  strictly > window).
+- **Rate-limiter memory bound:** per-sender state is pruned opportunistically
+  (every 1,000 checks, drop senders idle > 10 min and not banned) so the
+  sender map can't grow unbounded at event scale.
+- **Dedup Bloom/LRU wiring:** the Bloom filter answers membership (a ~1% false
+  positive drops a valid message once — spec'd as acceptable); the LRU
+  (OrderedDict msg_id → seen_at) is the source of truth for what is live.
+  Because Bloom filters can't delete, the filter is **rebuilt from live LRU
+  entries after 1,000 evictions accumulate** (threshold = 10% of capacity).
+  The filter is sized `capacity + 2 × rebuild_threshold` so lingering evicted
+  entries never overflow its hard capacity between rebuilds. Boundary: an
+  entry exactly at the 10-min TTL is still a duplicate (evict when age
+  strictly > TTL).
+- **Bloom library (Python): pybloom-live 4.0.0** — named in the Tech Ref.
+  Dart: any Bloom implementation with the same capacity/error-rate semantics
+  works; the filter is device-local state, never on the wire, so
+  implementations don't need to match bit-for-bit.
+- **Clock injection:** `DedupCache` and `RateLimiter` take a `clock` callable
+  (default `time.time`) so tests control time. Mirror this in Dart.
