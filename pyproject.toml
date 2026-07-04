@@ -2,7 +2,17 @@
 name = "meshlink-core"
 version = "0.1.0"
 requires-python = ">=3.10"
+dependencies = [
+    "blake3>=1.0.9",
+    "pybloom-live>=4.0.0",
+    "pynacl>=1.6.2",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
