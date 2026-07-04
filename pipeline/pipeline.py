@@ -71,8 +71,8 @@ class RelayPipeline:
         if reason := check_signature(msg):
             return PipelineResult(Outcome.DROP, reason)
 
-        # Step 7 — attestation token (stub; real in Phase 5)
-        if reason := check_attestation(msg):
+        # Step 7 — attestation token (always-pass stub; real in Phase 5)
+        if reason := check_attestation(msg, msg.sender_key):
             return PipelineResult(Outcome.DROP, reason)
 
         # Step 8 — deliver or relay (stub: always deliver at Phase 0)
