@@ -67,7 +67,7 @@ class RelayPipeline:
         if reason := self._rate_limiter.check(msg):
             return PipelineResult(Outcome.DROP, reason)
 
-        # Step 6 — Ed25519 signature (stub; real in Phase 4)
+        # Step 6 — Ed25519 signature verification
         if reason := check_signature(msg):
             return PipelineResult(Outcome.DROP, reason)
 

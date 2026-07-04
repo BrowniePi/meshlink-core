@@ -51,3 +51,20 @@ implementations are wire- and behaviour-compatible.
   implementations don't need to match bit-for-bit.
 - **Clock injection:** `DedupCache` and `RateLimiter` take a `clock` callable
   (default `time.time`) so tests control time. Mirror this in Dart.
+
+## Signing / verification
+
+- **Signed region:** the Phase 4 task card says the signature "must cover
+  msg_id + payload"; message-format.md §3 is more precise — the signature
+  covers `bytes[0 : 75 + payload_len]` (the whole header including msg_id,
+  plus payload). The spec's definition is implemented; the task wording is a
+  summary of it, not a different scheme.
+- **msg_id hashing: `blake3` PyPI package 1.x** (official Rust-backed
+  binding). Dart: any BLAKE3 implementation; output must match byte-for-byte
+  (`BLAKE3(sender_key ‖ timestamp_be4 ‖ msg_type_byte ‖ payload)[0:16]`).
+- **No hardcoded test keypair anywhere:** the test helpers generate a fresh
+  `TEST_IDENTITY` at import time and sign every built packet with it. Do the
+  same in the Dart test suite — never commit key material, even test keys.
+- **Pipeline does not verify msg_id derivation.** Recomputing the BLAKE3
+  msg_id at relays is possible per spec ("any relay can recompute") but is not
+  one of the 8 documented pipeline steps, so it is deliberately not checked.
