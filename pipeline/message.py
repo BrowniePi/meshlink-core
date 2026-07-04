@@ -8,6 +8,22 @@ SIGNATURE_SIZE = 64   # Ed25519 signature appended after payload
 MIN_PACKET = 131      # pre-parse size floor (catches truncated headers)
 MAX_PACKET = 460      # pre-parse size ceiling (75 header + 321 payload + 64 sig)
 
+# ttl (offset 68) and spray_L (offset 69) are rewritten by every relay hop
+# (Technical Reference §3), so they are excluded from the Ed25519 signed
+# region — a relay decrementing ttl or splitting spray_L must not invalidate
+# the originating sender's signature. See DECISIONS.md.
+_TTL_SPRAY_OFFSET = 68
+_TTL_SPRAY_SIZE = 2
+
+
+def signed_region(raw: bytes, payload_len: int) -> bytes:
+    """Bytes covered by the Ed25519 signature: the full header and payload
+    except the two hop-mutable bytes (ttl, spray_L)."""
+    return (
+        raw[:_TTL_SPRAY_OFFSET]
+        + raw[_TTL_SPRAY_OFFSET + _TTL_SPRAY_SIZE : HEADER_SIZE + payload_len]
+    )
+
 
 @dataclass
 class Message:

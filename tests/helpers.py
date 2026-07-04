@@ -9,6 +9,7 @@ import struct
 import time
 
 from identity import generate_keypair
+from pipeline.message import signed_region
 
 _HEADER_FORMAT = ">16s32s16sIBBHBH"
 
@@ -45,9 +46,12 @@ def build_packet(
         msg_id, sender_key, ephem_id,
         timestamp, ttl, spray_l, zone_id, msg_type, len(payload),
     )
+    unsigned_packet = header + payload
     if signature is None:
-        signature = TEST_IDENTITY.signing_key.sign(header + payload).signature
-    packet = header + payload + signature
+        signature = TEST_IDENTITY.signing_key.sign(
+            signed_region(unsigned_packet, len(payload))
+        ).signature
+    packet = unsigned_packet + signature
 
     if force_length is not None:
         if force_length < len(packet):

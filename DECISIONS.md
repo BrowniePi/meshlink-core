@@ -54,11 +54,30 @@ implementations are wire- and behaviour-compatible.
 
 ## Signing / verification
 
-- **Signed region:** the Phase 4 task card says the signature "must cover
-  msg_id + payload"; message-format.md §3 is more precise — the signature
-  covers `bytes[0 : 75 + payload_len]` (the whole header including msg_id,
-  plus payload). The spec's definition is implemented; the task wording is a
-  summary of it, not a different scheme.
+- **Signed region excludes `ttl` and `spray_L` (offsets 68–69).** Confirmed
+  with project owner 2026-07-04. message-format.md originally defined
+  `signed_region = bytes[0 : 75 + payload_len]`, which includes `ttl`/
+  `spray_L` — but those two bytes are rewritten by every relay hop (ttl
+  decremented, spray_L binary-split) per the routing spec, and only the
+  originating sender holds the private key. Under the literal signed region,
+  any relay's hop mutation would invalidate the original signature, so
+  verification could only ever succeed for direct (1-hop) delivery — a
+  multi-hop relay would always fail signature verification at hop 2+. This
+  was caught by actually running the socket-based sim harness end-to-end
+  after wiring up real verification (`sim/harness.py`, 3-node line topology),
+  not by any unit test, since the unit tests never modeled a genuine
+  multi-hop relay path with real signatures.
+  Fix: `signed_region = bytes[0:68] ‖ bytes[70:75+payload_len]` — every field
+  except `ttl`, `spray_L`, and `signature` itself. A relay now only
+  overwrites those two bytes (`sim/packet.py:rewrite_ttl_and_spray`) and
+  forwards the packet with the original signature unchanged; it never
+  re-signs, since it isn't the originating sender. **This is a deviation from
+  the literal wire spec as originally written in message-format.md** (now
+  updated in this repo) — the Dart port must implement the same excluded
+  signed region, or Python/Dart nodes relaying for each other will disagree
+  on signature validity past the first hop.
+  See `pipeline/message.py:signed_region()` (single implementation used by
+  both signing and verification).
 - **msg_id hashing: `blake3` PyPI package 1.x** (official Rust-backed
   binding). Dart: any BLAKE3 implementation; output must match byte-for-byte
   (`BLAKE3(sender_key ‖ timestamp_be4 ‖ msg_type_byte ‖ payload)[0:16]`).
@@ -83,3 +102,12 @@ implementations are wire- and behaviour-compatible.
   older than 5 min is the stale-timestamp attack at step 3. Both are covered;
   "duplicate" (benign double-send) and "replay" (attacker re-injection) are
   mechanically identical at step 4.
+- **A second, socket-based adversarial demo exists at `sim/adversarial_demo.py`**
+  (added when testing over real sockets, not part of the Notion task card).
+  It runs the same 5 attacks against a live 3-node `sim.harness` mesh
+  (`SocketTransport` + `RelayPipeline` per device, real TCP connections) from
+  an attacker transport that is not a registered neighbor, and asserts
+  outcomes by capturing `sim.device`'s log events rather than calling
+  `RelayPipeline.process()` directly. This is what actually exercises
+  multi-hop relay with real signatures and is how the `ttl`/`spray_L` signed-
+  region bug above was found.

@@ -2,16 +2,17 @@
 
 Every outgoing message is signed with the device's long-term private key
 before transmission. Per docs/message-format.md the signature covers the
-signed region bytes[0 : 75 + payload_len] — every field except the signature
-itself (which includes msg_id and payload). msg_id is content-addressable:
-BLAKE3(sender_key ‖ timestamp_be4 ‖ msg_type_byte ‖ payload)[0:16].
+header and payload except the two hop-mutable bytes (ttl, spray_L — rewritten
+by every relay) and the signature field itself — see pipeline.message.signed_region.
+msg_id is content-addressable: BLAKE3(sender_key ‖ timestamp_be4 ‖
+msg_type_byte ‖ payload)[0:16].
 """
 import struct
 import time
 
 import blake3
 
-from pipeline.message import HEADER_FORMAT
+from pipeline.message import HEADER_FORMAT, signed_region
 from .keygen import DeviceIdentity
 
 
@@ -42,6 +43,8 @@ def build_signed_packet(
         msg_id, sender_key, ephem_id,
         timestamp, ttl, spray_l, zone_id, msg_type, len(payload),
     )
-    signed_region = header + payload
-    signature = identity.signing_key.sign(signed_region).signature
-    return signed_region + signature
+    unsigned_packet = header + payload
+    signature = identity.signing_key.sign(
+        signed_region(unsigned_packet, len(payload))
+    ).signature
+    return unsigned_packet + signature

@@ -68,3 +68,17 @@ then register it in `TOPOLOGIES` in `sim/harness.py`.
 This harness is a manual-verification rig, not a pytest target — verify by
 running it and reading the log output. The existing unit test suite (pipeline
 checks, transport, routing) still runs via `uv run pytest`.
+
+## Adversarial demo (Phase 4)
+
+`sim/adversarial_demo.py` runs the same 3-node line topology and injects a
+forged signature, a replayed message, a stale timestamp, a future timestamp,
+and a duplicate message from an attacker socket that is not a registered
+neighbor — confirming each is rejected at the correct pipeline step over
+real TCP connections, not via a direct in-process pipeline call:
+
+```
+uv run python -m sim.adversarial_demo
+```
+
+Prints a PASS/FAIL line per check and exits non-zero on any failure.

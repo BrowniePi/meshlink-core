@@ -94,10 +94,10 @@ Type-specific content. Structure determined by `msg_type`. See section 4.
 Ed25519 signature (libsodium `crypto_sign_ed25519`) over the signed region:
 
 ```
-signed_region = bytes[0 : 75 + payload_len]
+signed_region = bytes[0 : 68] ‖ bytes[70 : 75 + payload_len]
 ```
 
-i.e., every field in the packet except `signature` itself. The signing key is the sender's long-term Ed25519 private key (the keypair whose public half is `sender_key`). Verified at relay pipeline step 6.
+i.e., every field in the packet except `ttl`, `spray_L`, and `signature` itself. `ttl` and `spray_L` (offsets 68–69) are excluded because they are rewritten by every relay hop (ttl decremented, spray_L split per the binary rule) — including them would mean a relay's routing-metadata update invalidates the originating sender's signature, breaking verification on every hop beyond the first. Excluding them lets any relay along the path rewrite those two bytes and forward the packet unchanged otherwise, with the original signature still verifying. The signing key is the sender's long-term Ed25519 private key (the keypair whose public half is `sender_key`). Verified at relay pipeline step 6.
 
 ---
 

@@ -5,13 +5,14 @@ depend on the tests/ package.
 """
 import struct
 
-from pipeline.message import HEADER_FORMAT, SIGNATURE_SIZE
+from identity import DeviceIdentity
+from pipeline.message import HEADER_FORMAT, signed_region
 
 
 def build_packet(
     *,
+    identity: DeviceIdentity,
     msg_id: bytes,
-    sender_key: bytes,
     ephem_id: bytes,
     timestamp: int,
     ttl: int,
@@ -19,14 +20,30 @@ def build_packet(
     zone_id: int,
     msg_type: int,
     payload: bytes,
-    signature: bytes = b"\x00" * SIGNATURE_SIZE,
 ) -> bytes:
-    """Serialize a well-formed packet. ttl/spray_l are header fields, so
-    relaying with a decremented ttl or reduced spray_l means re-serializing —
-    signature is a stub at Phase 0, so this is safe."""
+    """Serialize and sign a well-formed packet with the originating device's
+    real Ed25519 identity. ttl/spray_l are excluded from the signed region
+    (see pipeline.message.signed_region), so a relay re-serializing this
+    packet with a decremented ttl or reduced spray_l — but an unchanged
+    signature — still verifies at the next hop."""
     header = struct.pack(
         HEADER_FORMAT,
-        msg_id, sender_key, ephem_id,
+        msg_id, identity.public_key, ephem_id,
         timestamp, ttl, spray_l, zone_id, msg_type, len(payload),
     )
-    return header + payload + signature
+    unsigned_packet = header + payload
+    signature = identity.signing_key.sign(
+        signed_region(unsigned_packet, len(payload))
+    ).signature
+    return unsigned_packet + signature
+
+
+def rewrite_ttl_and_spray(raw: bytes, *, ttl: int, spray_l: int) -> bytes:
+    """Overwrite a relayed packet's hop-mutable ttl (offset 68) and spray_L
+    (offset 69) bytes in place. Safe without re-signing because those two
+    bytes are excluded from the Ed25519 signed region — the rest of the
+    packet, including the original signature, is untouched."""
+    patched = bytearray(raw)
+    patched[68] = ttl
+    patched[69] = spray_l
+    return bytes(patched)

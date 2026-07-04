@@ -8,10 +8,11 @@ and whether to spray it onward to neighbors.
 import time
 from dataclasses import dataclass, field
 
+from identity import DeviceIdentity, generate_keypair
 from pipeline.pipeline import Outcome, RelayPipeline
 from routing.spray_and_wait import split_copies
 from sim.logging_util import log_event
-from sim.packet import build_packet
+from sim.packet import build_packet, rewrite_ttl_and_spray
 from transport.socket_transport import SocketTransport
 
 BROADCAST_ZONE = 0xFFFF
@@ -21,6 +22,7 @@ BROADCAST_ZONE = 0xFFFF
 class Device:
     index: int
     zone_id: int
+    identity: DeviceIdentity = field(default_factory=generate_keypair)
     transport: SocketTransport = field(default_factory=SocketTransport)
     pipeline: RelayPipeline = field(default_factory=RelayPipeline)
     neighbors: list[str] = field(default_factory=list)
@@ -46,8 +48,8 @@ class Device:
         msg_id: bytes,
     ) -> None:
         raw = build_packet(
+            identity=self.identity,
             msg_id=msg_id,
-            sender_key=b"\x01" * 32,
             ephem_id=b"\x02" * 16,
             timestamp=int(time.time()),
             ttl=ttl,
@@ -78,17 +80,12 @@ class Device:
 
         copies = split_copies(msg.spray_l)
         if copies.forward > 0 and msg.ttl > 1:
-            new_raw = build_packet(
-                msg_id=msg.msg_id,
-                sender_key=msg.sender_key,
-                ephem_id=msg.ephem_id,
-                timestamp=msg.timestamp,
-                ttl=msg.ttl - 1,
-                spray_l=copies.forward,
-                zone_id=msg.zone_id,
-                msg_type=msg.msg_type,
-                payload=msg.payload,
-                signature=msg.signature,
+            # ttl/spray_L are excluded from the signed region (see
+            # pipeline.message.signed_region), so a relay only overwrites
+            # those two bytes — it never re-signs, since it isn't the
+            # original sender and doesn't hold that private key.
+            new_raw = rewrite_ttl_and_spray(
+                msg.raw, ttl=msg.ttl - 1, spray_l=copies.forward
             )
             for peer in self.neighbors:
                 self.transport.send(peer, new_raw)

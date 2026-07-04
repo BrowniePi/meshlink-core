@@ -52,3 +52,16 @@ def test_corrupted_header_field_rejected():
     raw[70] ^= 0x01  # tamper with zone_id, inside the signed region
     msg = parse_packet(bytes(raw))
     assert check_signature(msg) is not None
+
+
+def test_relay_decrementing_ttl_and_spray_l_keeps_signature_valid():
+    # ttl (offset 68) and spray_L (offset 69) are hop-mutable and excluded
+    # from the signed region — a relay must be able to rewrite them without
+    # invalidating the originating sender's signature.
+    raw = bytearray(build_packet(ttl=5, spray_l=8))
+    raw[68] = 4  # ttl decremented by one hop
+    raw[69] = 4  # spray_L split in half
+    msg = parse_packet(bytes(raw))
+    assert msg.ttl == 4
+    assert msg.spray_l == 4
+    assert check_signature(msg) is None
