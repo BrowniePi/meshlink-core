@@ -6,7 +6,8 @@ the message.
 """
 from pipeline import pipeline as pipeline_module
 from pipeline.pipeline import RelayPipeline, Outcome
-from tests.helpers import build_packet
+from tests.helpers import TEST_IDENTITY, build_packet
+from tests.test_attestation_check import make_cache, mint_token
 
 
 def _spy(monkeypatch, name, call_order):
@@ -31,12 +32,15 @@ def _spy_method(monkeypatch, obj, label, call_order):
 
 def test_checks_run_in_documented_order(monkeypatch):
     call_order = []
-    for name in ("check_size", "check_ttl", "check_timestamp", "check_signature", "check_attestation"):
+    for name in ("check_size", "check_ttl", "check_timestamp", "check_signature"):
         _spy(monkeypatch, name, call_order)
 
-    pipeline = RelayPipeline()
+    attestation = make_cache()
+    attestation.add_token(mint_token(TEST_IDENTITY.public_key))
+    pipeline = RelayPipeline(attestation=attestation)
     _spy_method(monkeypatch, pipeline._dedup, "check_dedup", call_order)
     _spy_method(monkeypatch, pipeline._rate_limiter, "check_rate_limit", call_order)
+    _spy_method(monkeypatch, pipeline._attestation, "check_attestation", call_order)
 
     result = pipeline.process(build_packet())
 

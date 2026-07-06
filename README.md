@@ -12,7 +12,7 @@ Step 3  timestamp check   > 5 min old or > 30 s in future  — two comparisons, 
 Step 4  dedup             msg_id already seen               — Bloom filter lookup
 Step 5  rate limit        sender exceeds N/10 s             — sliding window counter  [stub]
 Step 6  signature verify  Ed25519 invalid                   — libsodium, ~50 µs/Pi    [stub]
-Step 7  attestation       no valid ticket token             — JWT verify               [stub]
+Step 7  attestation       no valid ticket token             — cached-token lookup
 Step 8  deliver or relay  —
 ```
 

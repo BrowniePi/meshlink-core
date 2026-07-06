@@ -9,7 +9,7 @@ from .timestamp_check import check_timestamp
 from .dedup_check import DedupCache
 from .rate_limit_check import RateLimiter
 from .signature_check import check_signature
-from .attestation_check import check_attestation
+from .attestation_check import AttestationCache
 
 
 class Outcome(Enum):
@@ -32,13 +32,15 @@ class RelayPipeline:
     rate-limit (step 5) before any Ed25519 work is done. Violating this order
     opens a CPU and battery exhaustion vector on mobile relays.
 
-    Step 7 (attestation) is a deliberate always-pass stub until the backend
-    exists; it is replaced with real token validation in Phase 5.
+    Step 7 (attestation) enforces ticket-bound tokens when an
+    AttestationCache is provided (Phase 5). Without one the step passes —
+    the node runs open until an organiser key is provisioned.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, attestation: Optional[AttestationCache] = None) -> None:
         self._dedup = DedupCache()
         self._rate_limiter = RateLimiter()
+        self._attestation = attestation
 
     def process(self, raw: bytes) -> PipelineResult:
         # Step 1 — size (pre-parse, one comparison)
@@ -71,9 +73,10 @@ class RelayPipeline:
         if reason := check_signature(msg):
             return PipelineResult(Outcome.DROP, reason)
 
-        # Step 7 — attestation token (always-pass stub; real in Phase 5)
-        if reason := check_attestation(msg, msg.sender_key):
-            return PipelineResult(Outcome.DROP, reason)
+        # Step 7 — attestation token (skipped when no organiser key configured)
+        if self._attestation is not None:
+            if reason := self._attestation.check(msg.sender_key):
+                return PipelineResult(Outcome.DROP, reason)
 
         # Step 8 — deliver or relay (stub: always deliver at Phase 0)
         return PipelineResult(Outcome.DELIVER, message=msg)
