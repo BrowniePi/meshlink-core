@@ -1,0 +1,13 @@
+t=2ms device=0 event=injected msg_id=abababab zone_id=4 ttl=5 spray_l=8
+t=2ms device=0 event=relayed msg_id=abababab to=127.0.0.1:61131 ttl=4 spray_l=4
+t=3ms device=1 event=received from=127.0.0.1:61130
+t=3ms device=1 event=relayed msg_id=abababab to=127.0.0.1:61130 ttl=3 spray_l=2
+t=3ms device=0 event=received from=127.0.0.1:61131
+t=3ms device=0 event=dropped reason=duplicate: msg_id already seen
+t=3ms device=1 event=relayed msg_id=abababab to=127.0.0.1:61132 ttl=3 spray_l=2
+t=4ms device=2 event=received from=127.0.0.1:61131
+t=4ms device=2 event=relayed msg_id=abababab to=127.0.0.1:61131 ttl=2 spray_l=1
+t=4ms device=1 event=received from=127.0.0.1:61132
+t=4ms device=1 event=dropped reason=duplicate: msg_id already seen
+t=307ms device=0 event=injected msg_id=abababab zone_id=4 ttl=5 spray_l=8
+t=308ms device=0 event=dropped reason=duplicate: msg_id already seen

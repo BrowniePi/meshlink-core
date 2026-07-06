@@ -1,0 +1,45 @@
+t=2ms device=0 event=injected msg_id=cdcdcdcd zone_id=99 ttl=6 spray_l=4
+t=2ms device=0 event=relayed msg_id=cdcdcdcd to=127.0.0.1:61139 ttl=5 spray_l=2
+t=2ms device=1 event=received from=127.0.0.1:61138
+t=2ms device=1 event=delivered msg_id=cdcdcdcd zone_id=99
+t=3ms device=0 event=relayed msg_id=cdcdcdcd to=127.0.0.1:61140 ttl=5 spray_l=2
+t=3ms device=2 event=received from=127.0.0.1:61138
+t=3ms device=1 event=ack_sent acked_msg_id=cdcdcdcd to=127.0.0.1:61138
+t=3ms device=0 event=relayed msg_id=cdcdcdcd to=127.0.0.1:61141 ttl=5 spray_l=2
+t=4ms device=0 event=received from=127.0.0.1:61139
+t=4ms device=0 event=ack_received acked_msg_id=cdcdcdcd ttl=3
+t=4ms device=2 event=relayed msg_id=cdcdcdcd to=127.0.0.1:61138 ttl=4 spray_l=1
+t=4ms device=3 event=received from=127.0.0.1:61138
+t=4ms device=1 event=ack_sent acked_msg_id=cdcdcdcd to=127.0.0.1:61142
+t=4ms device=1 event=suppressed msg_id=cdcdcdcd ttl=5 spray_l=2 reason=ack received
+t=4ms device=0 event=received from=127.0.0.1:61140
+t=4ms device=0 event=dropped reason=duplicate: msg_id already seen
+t=4ms device=4 event=received from=127.0.0.1:61139
+t=4ms device=4 event=ack_received acked_msg_id=cdcdcdcd ttl=3
+t=4ms device=0 event=ack_relayed acked_msg_id=cdcdcdcd to=127.0.0.1:61139 ttl=2
+t=5ms device=3 event=relayed msg_id=cdcdcdcd to=127.0.0.1:61138 ttl=4 spray_l=1
+t=5ms device=1 event=received from=127.0.0.1:61138
+t=5ms device=1 event=ack_received acked_msg_id=cdcdcdcd ttl=2
+t=5ms device=0 event=received from=127.0.0.1:61141
+t=5ms device=0 event=dropped reason=duplicate: msg_id already seen
+t=5ms device=4 event=ack_relayed acked_msg_id=cdcdcdcd to=127.0.0.1:61139 ttl=2
+t=5ms device=0 event=ack_relayed acked_msg_id=cdcdcdcd to=127.0.0.1:61140 ttl=2
+t=5ms device=1 event=received from=127.0.0.1:61142
+t=5ms device=1 event=dropped reason=duplicate: msg_id already seen
+t=6ms device=1 event=ack_relayed acked_msg_id=cdcdcdcd to=127.0.0.1:61138 ttl=1
+t=6ms device=2 event=received from=127.0.0.1:61138
+t=6ms device=2 event=ack_received acked_msg_id=cdcdcdcd ttl=2
+t=6ms device=0 event=received from=127.0.0.1:61139
+t=6ms device=0 event=dropped reason=duplicate: msg_id already seen
+t=6ms device=0 event=ack_relayed acked_msg_id=cdcdcdcd to=127.0.0.1:61141 ttl=2
+t=6ms device=1 event=ack_relayed acked_msg_id=cdcdcdcd to=127.0.0.1:61142 ttl=1
+t=6ms device=3 event=received from=127.0.0.1:61138
+t=6ms device=3 event=ack_received acked_msg_id=cdcdcdcd ttl=2
+t=6ms device=2 event=ack_relayed acked_msg_id=cdcdcdcd to=127.0.0.1:61138 ttl=1
+t=6ms device=4 event=received from=127.0.0.1:61139
+t=6ms device=4 event=dropped reason=duplicate: msg_id already seen
+t=6ms device=0 event=received from=127.0.0.1:61140
+t=6ms device=0 event=dropped reason=duplicate: msg_id already seen
+t=7ms device=3 event=ack_relayed acked_msg_id=cdcdcdcd to=127.0.0.1:61138 ttl=1
+t=7ms device=0 event=received from=127.0.0.1:61141
+t=7ms device=0 event=dropped reason=duplicate: msg_id already seen

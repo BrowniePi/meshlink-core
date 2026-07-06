@@ -51,6 +51,21 @@ Each line is `t=<ms since harness start> device=<index> event=<name> ...fields`:
   relayed message from ping-ponging back to a device that already saw it —
   `msg_id` never changes across hops, so each device's own dedup cache kills
   the loop).
+- `ack_sent` — a device delivered a message and sent an ACK (msg_type 0x03,
+  see `docs/message-format.md`) back to its neighbors.
+- `ack_received` / `ack_relayed` — a device received an ACK or ACK_SUPPRESS
+  and (while ttl budget remains) re-flooded it as ACK_SUPPRESS.
+- `suppressed` — a device held an in-flight spray copy of a msg_id it has
+  since learned was ACKed, and dropped it instead of relaying — this is how
+  Spray-and-Wait stops flooding a message once it's known to be delivered,
+  without waiting for ttl/spray_l to exhaust naturally.
+
+## Demos
+
+`sim/demos/` has one script per Phase 0 validation scenario (TTL expiry,
+dedup, spray suppression via ACK). Run e.g. `uv run python -m
+sim.demos.demo_spray_suppression`; each script's `.log` file alongside it is
+a captured transcript from a prior run.
 
 ## Adding a new topology
 
