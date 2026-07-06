@@ -2,8 +2,8 @@
 
 Tokens here are minted locally with a test organiser keypair, mirroring the
 compact JWT format meshlink-backend issues: EdDSA over
-base64url(header).base64url(claims), sub = device sender_key hex, exp = Unix
-seconds.
+base64url(header).base64url(claims), sub = device sender_key hex, eid =
+event ID, exp = Unix seconds.
 """
 import base64
 import json
@@ -17,6 +17,7 @@ from pipeline import AttestationCache, Outcome, RelayPipeline
 from .helpers import TEST_IDENTITY, build_packet
 
 ORGANISER = generate_keypair()
+EVENT_ID = "evt-test"
 
 
 def _b64url(data: bytes) -> str:
@@ -27,20 +28,21 @@ def mint_token(
     sender_key: bytes,
     *,
     organiser=ORGANISER,
+    event_id: str = EVENT_ID,
     exp: int | None = None,
     alg: str = "EdDSA",
 ) -> str:
     if exp is None:
         exp = int(time.time()) + 3600
     header = _b64url(json.dumps({"alg": alg, "typ": "JWT"}).encode())
-    claims = _b64url(json.dumps({"sub": sender_key.hex(), "exp": exp}).encode())
+    claims = _b64url(json.dumps({"sub": sender_key.hex(), "eid": event_id, "exp": exp}).encode())
     signed = f"{header}.{claims}"
     signature = organiser.signing_key.sign(signed.encode("ascii")).signature
     return f"{signed}.{_b64url(signature)}"
 
 
 def make_cache() -> AttestationCache:
-    return AttestationCache(ORGANISER.public_key)
+    return AttestationCache(ORGANISER.public_key, EVENT_ID)
 
 
 class TestAddToken:
@@ -52,6 +54,21 @@ class TestAddToken:
         token = mint_token(TEST_IDENTITY.public_key, organiser=generate_keypair())
         with pytest.raises(ValueError, match="invalid attestation token"):
             make_cache().add_token(token)
+
+    def test_wrong_event_rejected(self):
+        token = mint_token(TEST_IDENTITY.public_key, event_id="evt-other")
+        with pytest.raises(ValueError, match="wrong event"):
+            make_cache().add_token(token)
+
+    def test_missing_event_id_rejected(self):
+        header = _b64url(json.dumps({"alg": "EdDSA", "typ": "JWT"}).encode())
+        claims = _b64url(json.dumps(
+            {"sub": TEST_IDENTITY.public_key.hex(), "exp": int(time.time()) + 3600}
+        ).encode())
+        signed = f"{header}.{claims}"
+        signature = ORGANISER.signing_key.sign(signed.encode("ascii")).signature
+        with pytest.raises(ValueError, match="invalid attestation token"):
+            make_cache().add_token(f"{signed}.{_b64url(signature)}")
 
     def test_expired_token_rejected(self):
         token = mint_token(TEST_IDENTITY.public_key, exp=int(time.time()) - 1)
