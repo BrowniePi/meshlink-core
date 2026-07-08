@@ -34,6 +34,8 @@ LEGAL_EDGES = [
      FriendshipState.PENDING, []),  # simultaneous cross-request
     (FriendshipState.REQUESTED, {}, Event.RECV_ACCEPT,
      FriendshipState.FRIENDS, []),
+    (FriendshipState.FRIENDS, {}, Event.RECV_ACCEPT,
+     FriendshipState.FRIENDS, []),  # token refresh / duplicate accept
     (FriendshipState.REQUESTED, {}, Event.RECV_DECLINE,
      FriendshipState.NONE, []),
     (FriendshipState.PENDING, {}, Event.ACCEPT,

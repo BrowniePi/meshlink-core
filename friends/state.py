@@ -93,6 +93,13 @@ def transition(
     if event is Event.RECV_ACCEPT and state is FriendshipState.REQUESTED:
         return replace(record, state=FriendshipState.FRIENDS), []
 
+    # FRIEND_ACCEPT while already friends is the token-refresh path: the peer
+    # re-delivers a fresh capability token before the old one expires (or a
+    # duplicate accept arrives via two relays). Idempotent — no state change,
+    # no effects; the caller just stores the embedded token if present.
+    if event is Event.RECV_ACCEPT and state is FriendshipState.FRIENDS:
+        return record, []
+
     if event is Event.RECV_DECLINE and state is FriendshipState.REQUESTED:
         return replace(record, state=FriendshipState.NONE), []
 
