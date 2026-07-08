@@ -1,5 +1,31 @@
 import struct
 from dataclasses import dataclass
+from enum import IntEnum
+
+
+class MessageType(IntEnum):
+    """msg_type enum from docs/message-format.md §4.
+
+    Values are wire constants shared with meshlink-node and the meshlink-app
+    Dart port (lib/core/message_factory.dart) — never renumber existing
+    entries. 0x06 was allocated node/app-side in Phase 5 for attestation
+    token presentation and is recorded here so nothing else claims it.
+    """
+
+    TEXT = 0x01
+    LOCATION = 0x02              # phone → node location beacon (single coordinate)
+    ACK = 0x03
+    ACK_SUPPRESS = 0x04
+    ANNOUNCEMENT = 0x05
+    ATTESTATION_PRESENT = 0x06   # payload = organiser JWT (node-terminated)
+    # Friendship + node-served location (Phase 5 extension):
+    FRIEND_REQUEST = 0x07        # encrypted to recipient; routed like a DM
+    FRIEND_ACCEPT = 0x08         # encrypted to original requester
+    FRIEND_DECLINE = 0x09        # minimal, signed; references the request msg_id
+    LOCATION_QUERY = 0x0A        # requester → node; carries a capability token;
+                                 # node-terminated, never relayed to the target
+    LOCATION_RESPONSE = 0x0B     # node → requester; encrypted to requester
+    LOCATION_REVOKE = 0x0C       # target → node/friend; signed by target
 
 # Wire format constants from docs/message-format.md
 HEADER_FORMAT = ">16s32s16sIBBHBH"
