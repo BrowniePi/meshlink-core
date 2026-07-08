@@ -22,6 +22,9 @@ from crypto.sealed import seal, unseal
 RECIPIENT_HINT_SIZE = 8
 MAX_USERNAME_BYTES = 32
 
+# DIRECT_MESSAGE text cap: 321-byte payload − 8 hint − 48 seal overhead.
+MAX_DM_TEXT_BYTES = 265
+
 
 @dataclass(frozen=True)
 class FriendRequestPayload:
@@ -128,6 +131,27 @@ def decode_friend_decline(raw: bytes) -> bytes:
     if len(raw) != RECIPIENT_HINT_SIZE + 16:
         raise ValueError("FRIEND_DECLINE payload malformed")
     return raw[RECIPIENT_HINT_SIZE:]
+
+
+def encode_direct_message(
+    text: str, recipient_hint: bytes, recipient_curve25519_pub: bytes,
+) -> bytes:
+    """DIRECT_MESSAGE: hint + seal(utf-8 text). Sender authenticity comes from
+    the envelope's Ed25519 signature (pipeline step 6, same as DECLINE); the
+    recipient additionally requires the envelope sender_key to be a pinned
+    friend in FRIENDS state — mutual consent gates messaging, not just
+    location. Relays and nodes carry it opaque."""
+    body = text.encode("utf-8")
+    if not 1 <= len(body) <= MAX_DM_TEXT_BYTES:
+        raise ValueError(f"DM text must be 1–{MAX_DM_TEXT_BYTES} UTF-8 bytes")
+    return recipient_hint + seal(body, recipient_curve25519_pub)
+
+
+def decode_direct_message(raw: bytes, recipient_curve25519_priv: bytes) -> str:
+    body = unseal(raw[RECIPIENT_HINT_SIZE:], recipient_curve25519_priv)
+    if not 1 <= len(body) <= MAX_DM_TEXT_BYTES:
+        raise ValueError("DIRECT_MESSAGE payload malformed")
+    return body.decode("utf-8")
 
 
 def recipient_hint_of(raw: bytes) -> bytes:

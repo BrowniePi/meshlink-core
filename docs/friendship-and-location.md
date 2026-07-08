@@ -8,9 +8,9 @@ platform code), consumed by `meshlink-node` (submodule) and ported to Dart in
 
 | Module | Purpose |
 |---|---|
-| `pipeline/message.py` `MessageType` | Formalises the msg_type enum; adds `FRIEND_REQUEST/ACCEPT/DECLINE` (0x07–0x09) and `LOCATION_QUERY/RESPONSE/REVOKE` (0x0A–0x0C). Existing values untouched; 0x06 (attestation presentation, allocated node/app-side) is recorded so nothing reclaims it. The 120 s phone→node location beacon reuses the existing `LOCATION` (0x02) type — no new beacon type. |
+| `pipeline/message.py` `MessageType` | Formalises the msg_type enum; adds `FRIEND_REQUEST/ACCEPT/DECLINE` (0x07–0x09), `LOCATION_QUERY/RESPONSE/REVOKE` (0x0A–0x0C) and `DIRECT_MESSAGE` (0x0D). Existing values untouched; 0x06 (attestation presentation, allocated node/app-side) is recorded so nothing reclaims it. The 120 s phone→node location beacon reuses the existing `LOCATION` (0x02) type — no new beacon type. |
 | `friends/state.py` | Pure friendship state machine: `NONE → REQUESTED/PENDING → FRIENDS → REVOKED`. Takes events, returns new state + side-effect descriptors. `location_sharing_enabled` is a separate per-friend flag — friendship never auto-shares location. |
-| `friends/wire.py` | Payload codecs for the three friend message types. |
+| `friends/wire.py` | Payload codecs for the three friend message types, plus DIRECT_MESSAGE (0x0D): `hint ‖ seal(utf-8 text)`, text ≤ 265 bytes (321 − 8 hint − 48 seal overhead). DMs relay like TEXT but only the recipient can read them; sender authenticity is the envelope Ed25519 signature, and receiving phones drop DMs from anyone not a pinned FRIENDS-state peer — mutual consent gates messaging too. |
 | `capability/token.py` | 98-byte compact-binary capability token: `version ‖ issuer_pubkey_id(8) ‖ grantee_pubkey_id(8) ‖ issued_at ‖ expires_at ‖ scope ‖ nonce(8) ‖ Ed25519 signature(64)`, signed by the **target's** long-term key. `verify()` is a pure function. Default expiry 24 h. |
 | `location/wire.py` | Codecs for LOCATION_QUERY (the token itself), LOCATION_RESPONSE (single sealed coordinate), LOCATION_REVOKE (revocation key). |
 | `crypto/sealed.py` | Anonymous sealed envelope to an X25519 key (ephemeral X25519 + ChaCha20-Poly1305-IETF, 48-byte overhead). libsodium's `crypto_box_seal` construction with the AEAD swapped so the pure-Dart port can match it byte-for-byte. |

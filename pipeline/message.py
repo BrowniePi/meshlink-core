@@ -26,6 +26,8 @@ class MessageType(IntEnum):
                                  # node-terminated, never relayed to the target
     LOCATION_RESPONSE = 0x0B     # node → requester; encrypted to requester
     LOCATION_REVOKE = 0x0C       # target → node/friend; signed by target
+    DIRECT_MESSAGE = 0x0D        # friend → friend text, encrypted to recipient;
+                                 # relayed like TEXT, unreadable to relays/nodes
 
 # Wire format constants from docs/message-format.md
 HEADER_FORMAT = ">16s32s16sIBBHBH"

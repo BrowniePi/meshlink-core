@@ -9,12 +9,15 @@ from nacl.signing import SigningKey
 from capability.token import issue, pubkey_id
 from crypto.sealed import generate_encryption_keypair
 from friends.wire import (
+    MAX_DM_TEXT_BYTES,
     MAX_USERNAME_BYTES,
     FriendAcceptPayload,
     FriendRequestPayload,
+    decode_direct_message,
     decode_friend_accept,
     decode_friend_decline,
     decode_friend_request,
+    encode_direct_message,
     encode_friend_accept,
     encode_friend_decline,
     encode_friend_request,
@@ -130,6 +133,34 @@ def test_location_revoke_round_trip_and_size():
     assert payload.revocation_key == (payload.issuer_pubkey_id, b"\x22" * 8,
                                       1_800_000_000, b"\x0c" * 8)
     assert_within_size_bounds(MessageType.LOCATION_REVOKE, raw)
+
+
+def test_direct_message_round_trip_and_size():
+    """Worst case: a max-length DM must still fit the 460-byte packet cap."""
+    text = "m" * MAX_DM_TEXT_BYTES
+    raw = encode_direct_message(text, HINT, RECIP_PUB)
+    assert recipient_hint_of(raw) == HINT
+    assert decode_direct_message(raw, RECIP_PRIV) == text
+    assert_within_size_bounds(MessageType.DIRECT_MESSAGE, raw)
+
+
+def test_direct_message_utf8_and_bounds():
+    raw = encode_direct_message("café ☕", HINT, RECIP_PUB)
+    assert decode_direct_message(raw, RECIP_PRIV) == "café ☕"
+    with pytest.raises(ValueError):
+        encode_direct_message("", HINT, RECIP_PUB)
+    with pytest.raises(ValueError):
+        encode_direct_message("m" * (MAX_DM_TEXT_BYTES + 1), HINT, RECIP_PUB)
+
+
+def test_direct_message_unreadable_by_relays():
+    """A relay/node holding the raw payload learns the hint and nothing else:
+    only the recipient's X25519 key opens the body."""
+    other_priv, _ = generate_encryption_keypair()
+    raw = encode_direct_message("meet at gate B", HINT, RECIP_PUB)
+    assert b"meet at gate B" not in raw
+    with pytest.raises(ValueError):
+        decode_direct_message(raw, other_priv)
 
 
 def test_wrong_recipient_cannot_decode():
