@@ -27,6 +27,11 @@ from crypto.sealed import seal, unseal
 
 REQUESTER_HINT_SIZE = 8
 
+# LOCATION (0x02) beacon payload — docs/message-format.md §4, pre-existing
+# format: lat(int32 microdeg) lon(int32 microdeg) accuracy_m(u16), 10 bytes.
+_BEACON_FORMAT = ">iiH"
+BEACON_PAYLOAD_SIZE = struct.calcsize(_BEACON_FORMAT)
+
 # lat(int32 microdeg) lon(int32 microdeg) accuracy_m(u16) beacon_age_s(u32) zone_id(u16)
 _RESPONSE_FORMAT = ">iiHIH"
 _RESPONSE_SIZE = struct.calcsize(_RESPONSE_FORMAT)  # 16
@@ -113,3 +118,17 @@ def decode_location_revoke(raw: bytes) -> LocationRevokePayload:
         raise ValueError("LOCATION_REVOKE payload malformed")
     issuer_id, grantee_id, issued_at, nonce = struct.unpack(_REVOKE_FORMAT, raw)
     return LocationRevokePayload(issuer_id, grantee_id, issued_at, nonce)
+
+
+def encode_location_beacon(lat_microdeg: int, lon_microdeg: int,
+                           accuracy_m: int) -> bytes:
+    """The 120 s phone → node beacon reuses the existing LOCATION (0x02)
+    payload format — no new message type (docs/message-format.md §4)."""
+    return struct.pack(_BEACON_FORMAT, lat_microdeg, lon_microdeg, accuracy_m)
+
+
+def decode_location_beacon(raw: bytes) -> tuple[int, int, int]:
+    """Returns (lat_microdeg, lon_microdeg, accuracy_m)."""
+    if len(raw) != BEACON_PAYLOAD_SIZE:
+        raise ValueError("LOCATION beacon payload malformed")
+    return struct.unpack(_BEACON_FORMAT, raw)
