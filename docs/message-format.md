@@ -110,6 +110,15 @@ i.e., every field in the packet except `ttl`, `spray_L`, and `signature` itself.
 | `0x03` | ACK | Delivery acknowledgement — suppresses remaining spray copies |
 | `0x04` | ACK_SUPPRESS | Forwarded ACK suppression signal (depth ≤ 2 from original ACK emitter) |
 | `0x05` | ANNOUNCEMENT | Venue-wide broadcast from organiser; always paired with `zone_id = 0xFFFF` |
+| `0x06` | ATTESTATION_PRESENT | Attestation token presentation (Phase 5): payload is the organiser JWT, ASCII. Node-terminated, never delivered to phones |
+| `0x07` | FRIEND_REQUEST | Friend request: requester username + public keys, sealed to the recipient (see `friends/wire.py`). Routed like a DM |
+| `0x08` | FRIEND_ACCEPT | Friend accept: acceptor username + public keys + optional initial capability token, sealed to the original requester |
+| `0x09` | FRIEND_DECLINE | Friend decline: recipient hint + declined request's `msg_id`, nothing else. Authenticity from the envelope signature |
+| `0x0A` | LOCATION_QUERY | Requester → node: a capability token (`capability/token.py`, 98 bytes) authorising "serve me the issuer's last-known coordinate". Node-terminated — never relayed to the target phone |
+| `0x0B` | LOCATION_RESPONSE | Node → requester: a single coordinate `{lat, lon, accuracy_m, beacon_age_s, zone_id}`, sealed to the requester's Curve25519 key (see `location/wire.py`) |
+| `0x0C` | LOCATION_REVOKE | Target → node/friend: the revocation key of a previously issued capability token. Enforcement points must check the envelope sender is the token's issuer |
+
+The `0x07`–`0x0C` payloads that name a phone recipient start with an 8-byte plaintext `recipient_hint` = BLAKE3(recipient Ed25519 pub)[0:8]; the rest is sealed to the recipient's X25519 key with the ChaCha20-Poly1305 sealed envelope in `crypto/sealed.py` (48-byte overhead). All fit the [131, 460] packet bounds at maximum field sizes — asserted in `tests/test_friend_wire.py`.
 
 ### TEXT and ANNOUNCEMENT payload
 
