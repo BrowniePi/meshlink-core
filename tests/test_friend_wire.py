@@ -102,6 +102,7 @@ def test_location_query_round_trip_and_size():
 
 def test_location_response_round_trip_and_size():
     payload = LocationResponsePayload(
+        target_pubkey_id=b"\x33" * 8,
         lat_microdeg=51503298, lon_microdeg=-127144,
         accuracy_m=5, beacon_age_s=40, zone_id=3,
     )
@@ -116,12 +117,13 @@ def test_location_response_carries_no_history_by_construction():
     and no container field a history could hide in."""
     fields = dataclasses.fields(LocationResponsePayload)
     assert {f.name for f in fields} == {
+        "target_pubkey_id",
         "lat_microdeg", "lon_microdeg", "accuracy_m", "beacon_age_s", "zone_id",
     }
-    assert all(f.type in (int, "int") for f in fields)
-    # And the wire form is fixed-size: hint + sealed(16-byte struct).
-    payload = LocationResponsePayload(0, 0, 0, 0, 0)
-    assert len(encode_location_response(payload, HINT, RECIP_PUB)) == 8 + 48 + 16
+    assert all(f.type in (int, "int", bytes, "bytes") for f in fields)
+    # And the wire form is fixed-size: hint + sealed(24-byte struct).
+    payload = LocationResponsePayload(b"\x00" * 8, 0, 0, 0, 0, 0)
+    assert len(encode_location_response(payload, HINT, RECIP_PUB)) == 8 + 48 + 24
 
 
 def test_location_revoke_round_trip_and_size():
