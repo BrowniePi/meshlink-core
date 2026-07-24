@@ -1,12 +1,16 @@
 """Payload codecs for LOCATION_QUERY / LOCATION_RESPONSE / LOCATION_REVOKE.
 
-LOCATION_QUERY is node-terminated: a requester asks the *node* for a
-friend's last-known coordinate, presenting the capability token that friend
-signed for them. The node never forwards the query to the target phone — the
-whole point of the hybrid is that it works while the target is asleep.
+LOCATION_QUERY sprays across the mesh like any message: a requester asks for
+a friend's coordinate, presenting the capability token that friend signed
+for them. Two answerers exist — the target *phone* itself (a live fix,
+beacon_age_s ≈ 0) and any *node* holding a cached beacon (the fallback while
+the target is asleep). The requester takes the freshest response.
 
 LOCATION_RESPONSE is a single coordinate, sealed to the requester's
 Curve25519 key (invariant 4 — a passive backhaul sniffer harvests nothing).
+The sealed body leads with the 8-byte pubkey_id of the *target* it answers
+about, so a requester with several queries in flight — or two answers racing
+for the same query — can correlate responses.
 The plaintext struct is fixed-size by construction: one lat, one lon, one
 age. There is no timestamp array, no history field, and no room to add one
 without a version bump — the wire format itself enforces the
@@ -32,9 +36,10 @@ REQUESTER_HINT_SIZE = 8
 _BEACON_FORMAT = ">iiH"
 BEACON_PAYLOAD_SIZE = struct.calcsize(_BEACON_FORMAT)
 
-# lat(int32 microdeg) lon(int32 microdeg) accuracy_m(u16) beacon_age_s(u32) zone_id(u16)
-_RESPONSE_FORMAT = ">iiHIH"
-_RESPONSE_SIZE = struct.calcsize(_RESPONSE_FORMAT)  # 16
+# target_pubkey_id(8s) lat(int32 microdeg) lon(int32 microdeg)
+# accuracy_m(u16) beacon_age_s(u32) zone_id(u16)
+_RESPONSE_FORMAT = ">8siiHIH"
+_RESPONSE_SIZE = struct.calcsize(_RESPONSE_FORMAT)  # 24
 
 _REVOKE_FORMAT = ">8s8sI8s"
 REVOKE_PAYLOAD_SIZE = struct.calcsize(_REVOKE_FORMAT)  # 28
@@ -42,6 +47,7 @@ REVOKE_PAYLOAD_SIZE = struct.calcsize(_REVOKE_FORMAT)  # 28
 
 @dataclass(frozen=True)
 class LocationResponsePayload:
+    target_pubkey_id: bytes  # whose coordinate this answers about (8 bytes)
     lat_microdeg: int
     lon_microdeg: int
     accuracy_m: int
@@ -84,6 +90,7 @@ def encode_location_response(
 ) -> bytes:
     body = struct.pack(
         _RESPONSE_FORMAT,
+        payload.target_pubkey_id,
         payload.lat_microdeg,
         payload.lon_microdeg,
         payload.accuracy_m,
@@ -99,8 +106,10 @@ def decode_location_response(
     body = unseal(raw[REQUESTER_HINT_SIZE:], requester_curve25519_priv)
     if len(body) != _RESPONSE_SIZE:
         raise ValueError("LOCATION_RESPONSE payload malformed")
-    lat, lon, accuracy_m, age_s, zone_id = struct.unpack(_RESPONSE_FORMAT, body)
-    return LocationResponsePayload(lat, lon, accuracy_m, age_s, zone_id)
+    target_id, lat, lon, accuracy_m, age_s, zone_id = struct.unpack(
+        _RESPONSE_FORMAT, body)
+    return LocationResponsePayload(target_id, lat, lon, accuracy_m, age_s,
+                                   zone_id)
 
 
 def encode_location_revoke(payload: LocationRevokePayload) -> bytes:
